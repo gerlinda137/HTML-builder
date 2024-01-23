@@ -15,7 +15,7 @@ fs.writeFile(path.join(__dirname, 'text.txt'), '', (err) => {
 });
 stdin.on('data', (data) => {
   const dataString = data.toString();
-  if (dataString == 'exit\n') {
+  if (dataString == 'exit\n' || dataString == 'exit\r\n') {
     stdout.write(
       'Thank you, all of your thoughts will be transfered to Tovarisch Mayor \n',
     );
