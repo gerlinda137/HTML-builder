@@ -5,25 +5,56 @@ const path = require('path');
 
 fs.readdir(path.join(__dirname), (err, data) => {
   if (err) throw err;
-  let hasDir = false;
-  for (const iterator of data) {
-    if (iterator == 'project-dist') {
-      hasDir = true;
-    }
-  }
-  if (!hasDir) {
+  const pathTargetDir = path.join(__dirname, 'project-dist');
+
+  fs.rm(pathTargetDir, { recursive: true, force: true }, () => {
     fs.mkdir(path.join(__dirname, 'project-dist'), (err) => {
       if (err) throw err;
-      console.log('Folder was created');
-    });
-  }
+      // read template.html
+      const templateStream = fs.createReadStream(
+        path.join(__dirname, 'template.html'),
+        'utf-8',
+      );
+      templateStream.on('data', readComponents);
+      // assets
+      fs.readdir(path.join(__dirname), (err, data) => {
+        if (err) throw err;
+        const pathOrigDir = path.join(__dirname, 'assets');
+        const pathTargetDir = path.join(__dirname, 'project-dist', 'assets');
 
-  // read template.html
-  const templateStream = fs.createReadStream(
-    path.join(__dirname, 'template.html'),
-    'utf-8',
-  );
-  templateStream.on('data', readComponents);
+        fs.rm(pathTargetDir, { recursive: true, force: true }, () => {
+          copyDir(pathOrigDir, pathTargetDir);
+        });
+      });
+
+      // styles
+      fs.readdir(
+        path.join(__dirname, 'styles'),
+        { withFileTypes: true },
+        (err, data) => {
+          if (err) throw err;
+          const bundle = fs.createWriteStream(
+            path.join(__dirname, 'project-dist', 'style.css'),
+          );
+
+          for (const iterator of data) {
+            if (iterator.isFile()) {
+              const fileName = iterator.name;
+              let extName = path.extname(fileName);
+              extName = extName.substring(1);
+              if (extName == 'css') {
+                const input = fs.createReadStream(
+                  path.join(__dirname, 'styles', fileName),
+                  'utf-8',
+                );
+                input.on('data', (chunk) => bundle.write(chunk));
+              }
+            }
+          }
+        },
+      );
+    });
+  });
 });
 
 function readComponents(mainTemplate) {
@@ -61,44 +92,6 @@ function printHtml(map, mainTemplate) {
 
   finalHtmlStream.write(replacedHtml);
 }
-
-// styles
-fs.readdir(
-  path.join(__dirname, 'styles'),
-  { withFileTypes: true },
-  (err, data) => {
-    if (err) throw err;
-    const bundle = fs.createWriteStream(
-      path.join(__dirname, 'project-dist', 'style.css'),
-    );
-
-    for (const iterator of data) {
-      if (iterator.isFile()) {
-        const fileName = iterator.name;
-        let extName = path.extname(fileName);
-        extName = extName.substring(1);
-        if (extName == 'css') {
-          const input = fs.createReadStream(
-            path.join(__dirname, 'styles', fileName),
-            'utf-8',
-          );
-          input.on('data', (chunk) => bundle.write(chunk));
-        }
-      }
-    }
-  },
-);
-
-// assets
-fs.readdir(path.join(__dirname), (err, data) => {
-  if (err) throw err;
-  const pathOrigDir = path.join(__dirname, 'assets');
-  const pathTargetDir = path.join(__dirname, 'project-dist', 'assets');
-
-  fs.rm(pathTargetDir, { recursive: true, force: true }, () => {
-    copyDir(pathOrigDir, pathTargetDir);
-  });
-});
 
 function copyDir(dirPath, targetDirPath) {
   fs.mkdir(targetDirPath, (err) => {
